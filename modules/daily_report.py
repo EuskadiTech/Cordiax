@@ -63,7 +63,7 @@ class DailyReportModule:
         
         # Área de texto con scroll
         self.report_text = scrolledtext.ScrolledText(report_frame, wrap=tk.WORD, 
-                                                     font=("Courier", 10))
+                                                     font=("Courier", 19), bg="#000000", fg="#00FF00", padx=10, pady=10)
         self.report_text.pack(fill=tk.BOTH, expand=True)
         
     def load_filters(self):
@@ -87,9 +87,10 @@ class DailyReportModule:
         self.report_text.delete("1.0", tk.END)
         
         fecha = self.date_var.get()
-        
+        COLS = 70
+        HAS_DATA = False
         # Encabezado
-        report = "=" * 80 + "\n"
+        report = "=" * COLS + "\n"
         report += f"INFORME DIARIO - {fecha}\n"
         
         # Agregar información de filtros
@@ -98,12 +99,9 @@ class DailyReportModule:
         if self.aula_filter_var.get() and self.aula_filter_var.get() != "Todas":
             report += f"Aula: {self.aula_filter_var.get()}\n"
         
-        report += "=" * 80 + "\n\n"
+        report += "=" * COLS + "\n"
         
         # Materiales bajo mínimo
-        report += "MATERIALES BAJO MÍNIMO:\n"
-        report += "-" * 80 + "\n"
-        
         materials = database.fetch_all("""
             SELECT nombre, categoria, cantidad, cantidad_minima, unidad
             FROM materiales
@@ -112,19 +110,19 @@ class DailyReportModule:
         """)
         
         if materials:
+            HAS_DATA = True
+            report += "\nMATERIALES BAJO MÍNIMO:\n"
+            report += "-" * COLS + "\n"
+            
             for mat in materials:
                 report += f"• {mat['nombre']}\n"
                 report += f"  Categoría: {mat['categoria'] or 'N/A'}\n"
                 report += f"  Cantidad actual: {mat['cantidad']} {mat['unidad'] or 'unidades'}\n"
                 report += f"  Cantidad mínima: {mat['cantidad_minima']} {mat['unidad'] or 'unidades'}\n"
                 report += f"  ⚠️ COMPRAR: {mat['cantidad_minima'] - mat['cantidad']} {mat['unidad'] or 'unidades'}\n\n"
-        else:
-            report += "  ✓ Todos los materiales están en niveles adecuados\n\n"
+        
         
         # Menú del día
-        report += "\nMENÚ DE CAFETERÍA DEL DÍA:\n"
-        report += "-" * 80 + "\n"
-        
         menu_items = database.fetch_all("""
             SELECT tipo_comida, plato, descripcion, alergenos
             FROM menu_cafeteria
@@ -138,6 +136,9 @@ class DailyReportModule:
         """, (fecha,))
         
         if menu_items:
+            HAS_DATA = True
+            report += "\nMENÚ DEL COMEDOR DEL DÍA:\n"
+            report += "-" * COLS + "\n"
             for item in menu_items:
                 report += f"\n{item['tipo_comida'].upper()}:\n"
                 report += f"  Plato: {item['plato']}\n"
@@ -145,12 +146,8 @@ class DailyReportModule:
                     report += f"  Descripción: {item['descripcion']}\n"
                 if item['alergenos']:
                     report += f"  ⚠️ Alérgenos: {item['alergenos']}\n"
-        else:
-            report += "  No hay menú registrado para este día\n"
         
         # Asistencia del día con filtros
-        report += "\n\nRESUMEN DE ASISTENCIA:\n"
-        report += "-" * 80 + "\n"
         
         # Construir consulta con filtros
         query = """
@@ -178,16 +175,21 @@ class DailyReportModule:
         asistencia = database.fetch_all(query, tuple(params))
         
         if asistencia:
+            HAS_DATA = True
+            report += "\n\nRESUMEN DE ASISTENCIA:\n"
+            report += "-" * COLS + "\n"
             total_registros = sum(a['total'] for a in asistencia)
             report += f"Total de registros: {total_registros}\n\n"
             for a in asistencia:
                 report += f"  {a['estado']}: {a['total']} estudiantes\n"
-        else:
-            report += "  No hay registros de asistencia para este día\n"
         
-        report += "\n" + "=" * 80 + "\n"
+        if not HAS_DATA:
+            report += "No hay datos disponibles para la fecha y filtros seleccionados.\n"
+
+
+        report += "\n" + "=" * COLS + "\n"
         report += "Fin del informe\n"
-        report += "=" * 80 + "\n"
+        report += "=" * COLS + "\n"
         
         self.report_text.insert("1.0", report)
     
