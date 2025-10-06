@@ -7,7 +7,7 @@ Maneja la encriptación de la base de datos
 import os
 from pathlib import Path
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet
 import base64
@@ -15,7 +15,7 @@ import base64
 
 def derive_key(password: str, salt: bytes) -> bytes:
     """Derivar clave de encriptación desde contraseña"""
-    kdf = PBKDF2(
+    kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
