@@ -41,6 +41,27 @@ class AssistanceModule:
         ttk.Button(control_frame, text="Buscar", 
                   command=self.load_assistance).pack(side=tk.LEFT, padx=5)
         
+        # Frame de filtros
+        filter_frame = ttk.Frame(self.parent)
+        filter_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(filter_frame, text="Centro:").pack(side=tk.LEFT, padx=5)
+        self.centro_filter_var = tk.StringVar(value="")
+        self.centro_filter_combo = ttk.Combobox(filter_frame, textvariable=self.centro_filter_var, 
+                                                width=20, state="readonly")
+        self.centro_filter_combo.pack(side=tk.LEFT, padx=5)
+        self.centro_filter_combo.bind("<<ComboboxSelected>>", lambda e: self.load_assistance())
+        
+        ttk.Label(filter_frame, text="Aula:").pack(side=tk.LEFT, padx=5)
+        self.aula_filter_var = tk.StringVar(value="")
+        self.aula_filter_combo = ttk.Combobox(filter_frame, textvariable=self.aula_filter_var, 
+                                              width=20, state="readonly")
+        self.aula_filter_combo.pack(side=tk.LEFT, padx=5)
+        self.aula_filter_combo.bind("<<ComboboxSelected>>", lambda e: self.load_assistance())
+        
+        # Cargar filtros
+        self.load_filters()
+        
         # Frame de botones
         button_frame = ttk.Frame(self.parent)
         button_frame.pack(fill=tk.X, pady=(0, 10))
@@ -63,7 +84,7 @@ class AssistanceModule:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Treeview
-        columns = ("ID", "Estudiante", "Fecha", "Estado", "Entrada", "Salida", "Notas")
+        columns = ("ID", "Estudiante", "Centro", "Aula", "Fecha", "Estado", "Entrada", "Salida", "Notas")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings",
                                 yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.tree.yview)
@@ -72,15 +93,33 @@ class AssistanceModule:
         for col in columns:
             self.tree.heading(col, text=col)
         
-        self.tree.column("ID", width=50)
-        self.tree.column("Estudiante", width=200)
-        self.tree.column("Fecha", width=100)
-        self.tree.column("Estado", width=100)
-        self.tree.column("Entrada", width=80)
-        self.tree.column("Salida", width=80)
-        self.tree.column("Notas", width=200)
+        self.tree.column("ID", width=40)
+        self.tree.column("Estudiante", width=150)
+        self.tree.column("Centro", width=120)
+        self.tree.column("Aula", width=80)
+        self.tree.column("Fecha", width=90)
+        self.tree.column("Estado", width=80)
+        self.tree.column("Entrada", width=70)
+        self.tree.column("Salida", width=70)
+        self.tree.column("Notas", width=150)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
+        
+    def load_filters(self):
+        """Cargar opciones de filtro"""
+        # Cargar centros
+        centros = database.fetch_all("SELECT id, nombre FROM centros ORDER BY nombre")
+        centro_names = ["Todos"] + [c['nombre'] for c in centros]
+        self.centro_filter_combo['values'] = centro_names
+        if not self.centro_filter_var.get():
+            self.centro_filter_var.set("Todos")
+        
+        # Cargar aulas
+        aulas = database.fetch_all("SELECT id, nombre FROM aulas ORDER BY nombre")
+        aula_names = ["Todas"] + [a['nombre'] for a in aulas]
+        self.aula_filter_combo['values'] = aula_names
+        if not self.aula_filter_var.get():
+            self.aula_filter_var.set("Todas")
         
     def load_assistance(self):
         """Cargar asistencia de la fecha seleccionada"""
@@ -90,20 +129,41 @@ class AssistanceModule:
         
         # Obtener asistencia
         fecha = self.date_var.get()
-        records = database.fetch_all("""
+        
+        # Construir consulta con filtros
+        query = """
             SELECT a.id, e.nombre, e.apellidos, a.fecha, a.estado, 
-                   a.hora_entrada, a.hora_salida, a.notas
+                   a.hora_entrada, a.hora_salida, a.notas,
+                   c.nombre as centro_nombre, au.nombre as aula_nombre
             FROM asistencia a
             JOIN estudiantes e ON a.estudiante_id = e.id
+            LEFT JOIN centros c ON e.centro_id = c.id
+            LEFT JOIN aulas au ON e.aula_id = au.id
             WHERE a.fecha = ?
-            ORDER BY e.apellidos, e.nombre
-        """, (fecha,))
+        """
+        params = [fecha]
+        
+        # Filtro por centro
+        if self.centro_filter_var.get() and self.centro_filter_var.get() != "Todos":
+            query += " AND c.nombre = ?"
+            params.append(self.centro_filter_var.get())
+        
+        # Filtro por aula
+        if self.aula_filter_var.get() and self.aula_filter_var.get() != "Todas":
+            query += " AND au.nombre = ?"
+            params.append(self.aula_filter_var.get())
+        
+        query += " ORDER BY e.apellidos, e.nombre"
+        
+        records = database.fetch_all(query, tuple(params))
         
         # Agregar a tabla
         for record in records:
             self.tree.insert("", tk.END, values=(
                 record['id'],
                 f"{record['nombre']} {record['apellidos']}",
+                record['centro_nombre'] or "",
+                record['aula_nombre'] or "",
                 record['fecha'],
                 record['estado'],
                 record['hora_entrada'] or "",
@@ -147,15 +207,30 @@ class AssistanceModule:
         fecha = self.date_var.get()
         hora_actual = datetime.now().strftime("%H:%M:%S")
         
-        # Obtener estudiantes activos sin registro de asistencia hoy
-        students = database.fetch_all("""
-            SELECT id, nombre, apellidos 
-            FROM estudiantes 
-            WHERE activo = 1
-            AND id NOT IN (
+        # Construir consulta con filtros
+        query = """
+            SELECT e.id, e.nombre, e.apellidos 
+            FROM estudiantes e
+            LEFT JOIN centros c ON e.centro_id = c.id
+            LEFT JOIN aulas au ON e.aula_id = au.id
+            WHERE e.activo = 1
+            AND e.id NOT IN (
                 SELECT estudiante_id FROM asistencia WHERE fecha = ?
             )
-        """, (fecha,))
+        """
+        params = [fecha]
+        
+        # Filtro por centro
+        if self.centro_filter_var.get() and self.centro_filter_var.get() != "Todos":
+            query += " AND c.nombre = ?"
+            params.append(self.centro_filter_var.get())
+        
+        # Filtro por aula
+        if self.aula_filter_var.get() and self.aula_filter_var.get() != "Todas":
+            query += " AND au.nombre = ?"
+            params.append(self.aula_filter_var.get())
+        
+        students = database.fetch_all(query, tuple(params))
         
         if not students:
             messagebox.showinfo("Información", "Todos los estudiantes ya tienen registro de asistencia")
