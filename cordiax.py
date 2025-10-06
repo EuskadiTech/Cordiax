@@ -99,6 +99,23 @@ class CordiaxApp:
                               bg='#2E86AB', fg='white')
         title_label.pack(pady=(10, 20))
         
+        # Canvas y scrollbar para hacer la lista de botones scrollable
+        canvas = tk.Canvas(button_frame, bg='#2E86AB', highlightthickness=0)
+        scrollbar = tk.Scrollbar(button_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#2E86AB')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas y scrollbar
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
         # Botones de navegación
         self.nav_buttons = []
         modules = [
@@ -117,7 +134,7 @@ class CordiaxApp:
         ]
         
         for text, command in modules:
-            btn = tk.Button(button_frame, text=text, command=command, 
+            btn = tk.Button(scrollable_frame, text=text, command=command, 
                           width=22, height=2,
                           font=('Arial', 10, 'bold'),
                           bg='#A23B72', fg='white',
@@ -128,6 +145,12 @@ class CordiaxApp:
                           bd=2)
             btn.pack(pady=5, padx=10, fill=tk.X)
             self.nav_buttons.append(btn)
+        
+        # Habilitar scroll con la rueda del mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
         
         # Frame de contenido
         self.content_frame = ttk.Frame(main_frame)
