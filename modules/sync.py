@@ -386,6 +386,53 @@ class SyncModule:
                     return None
         
         return db_path
+    
+    def get_files_to_sync(self):
+        """Obtener todos los archivos y directorios a sincronizar"""
+        import os
+        import zipfile
+        import tempfile
+        
+        # Crear un archivo ZIP temporal con todos los datos
+        temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        temp_zip.close()
+        
+        try:
+            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Añadir base de datos
+                db_file = self.get_db_file_to_sync()
+                if db_file and db_file.exists():
+                    zipf.write(db_file, 'cordiax.db')
+                    self.log(f"Añadido: cordiax.db")
+                
+                # Añadir archivos de directorios
+                dirs_to_sync = ['documentos', 'pdfs']
+                
+                for dir_name in dirs_to_sync:
+                    dir_path = database.USER_DATA_DIR / dir_name
+                    if dir_path.exists():
+                        file_count = 0
+                        for root, dirs, files in os.walk(dir_path):
+                            for file in files:
+                                file_path = Path(root) / file
+                                arcname = os.path.relpath(file_path, database.USER_DATA_DIR)
+                                zipf.write(file_path, arcname)
+                                file_count += 1
+                        self.log(f"Añadidos {file_count} archivos de {dir_name}/")
+                
+                # Restaurar estado de encriptación de la BD si fue modificada
+                if db_file and encryption.is_encryption_enabled(database.USER_DATA_DIR):
+                    if not encryption.is_encrypted(db_file):
+                        if database.DB_PASSWORD:
+                            encryption.encrypt_file(db_file, database.DB_PASSWORD)
+            
+            return Path(temp_zip.name)
+            
+        except Exception as e:
+            self.log(f"Error creando archivo de sincronización: {e}")
+            if os.path.exists(temp_zip.name):
+                os.unlink(temp_zip.name)
+            return None
         
     def start_sync(self):
         """Iniciar sincronización automática"""
@@ -540,23 +587,23 @@ class SyncModule:
         
         client = WebDAVClient(options)
         
-        # Obtener archivo a sincronizar
-        db_file = self.get_db_file_to_sync()
-        if not db_file:
-            raise Exception("No se pudo obtener el archivo de base de datos")
+        # Obtener archivo ZIP con todos los datos a sincronizar
+        sync_file = self.get_files_to_sync()
+        if not sync_file:
+            raise Exception("No se pudo crear el archivo de sincronización")
             
-        remote_path = config["remote_path"].rstrip('/') + '/cordiax.db'
+        try:
+            remote_path = config["remote_path"].rstrip('/') + '/cordiax_sync.zip'
+            
+            # Subir archivo
+            self.log("Subiendo datos a WebDAV...")
+            client.upload_sync(remote_path=remote_path, local_path=str(sync_file))
+            self.log("Datos sincronizados con WebDAV")
+        finally:
+            # Eliminar archivo temporal
+            if sync_file.exists():
+                sync_file.unlink()
         
-        # Subir archivo
-        self.log("Subiendo base de datos a WebDAV...")
-        client.upload_sync(remote_path=remote_path, local_path=str(db_file))
-        self.log("Base de datos sincronizada con WebDAV")
-        
-        # Restaurar estado de encriptación
-        if encryption.is_encryption_enabled(database.USER_DATA_DIR):
-            if not encryption.is_encrypted(db_file):
-                if database.DB_PASSWORD:
-                    encryption.encrypt_file(db_file, database.DB_PASSWORD)
         
     def sync_smb(self):
         """Sincronizar con SMB"""
@@ -580,55 +627,54 @@ class SyncModule:
         if not conn.connect(config["server"], 139):
             raise Exception("No se pudo conectar al servidor SMB")
             
-        # Obtener archivo a sincronizar
-        db_file = self.get_db_file_to_sync()
-        if not db_file:
-            raise Exception("No se pudo obtener el archivo de base de datos")
+        # Obtener archivo ZIP con todos los datos a sincronizar
+        sync_file = self.get_files_to_sync()
+        if not sync_file:
+            raise Exception("No se pudo crear el archivo de sincronización")
             
-        remote_path = config["remote_path"].rstrip('/') + '/cordiax.db'
+        try:
+            remote_path = config["remote_path"].rstrip('/') + '/cordiax_sync.zip'
+            
+            # Subir archivo
+            self.log("Subiendo datos a SMB...")
+            with open(sync_file, 'rb') as f:
+                conn.storeFile(config["share_name"], remote_path, f)
+            self.log("Datos sincronizados con SMB")
+        finally:
+            conn.close()
+            # Eliminar archivo temporal
+            if sync_file.exists():
+                sync_file.unlink()
         
-        # Subir archivo
-        self.log("Subiendo base de datos a SMB...")
-        with open(db_file, 'rb') as f:
-            conn.storeFile(config["share_name"], remote_path, f)
-        self.log("Base de datos sincronizada con SMB")
-        
-        conn.close()
-        
-        # Restaurar estado de encriptación
-        if encryption.is_encryption_enabled(database.USER_DATA_DIR):
-            if not encryption.is_encrypted(db_file):
-                if database.DB_PASSWORD:
-                    encryption.encrypt_file(db_file, database.DB_PASSWORD)
         
     def sync_socketio_manual(self):
         """Sincronizar manualmente con SocketIO"""
         if not SOCKETIO_AVAILABLE:
             raise Exception("SocketIO no está disponible")
             
-        # Obtener archivo a sincronizar
-        db_file = self.get_db_file_to_sync()
-        if not db_file:
-            raise Exception("No se pudo obtener el archivo de base de datos")
+        # Obtener archivo ZIP con todos los datos a sincronizar
+        sync_file = self.get_files_to_sync()
+        if not sync_file:
+            raise Exception("No se pudo crear el archivo de sincronización")
             
-        # Leer archivo
-        with open(db_file, 'rb') as f:
-            data = f.read()
-            
-        # Enviar al servidor
-        if self.sio and self.sio.connected:
-            self.log("Enviando base de datos al servidor SocketIO...")
-            self.sio.emit('sync_data', {'data': data.hex()}, 
-                         namespace=self.config["socketio"]["namespace"])
-            self.log("Base de datos sincronizada con SocketIO")
-        else:
-            raise Exception("No hay conexión SocketIO activa")
-            
-        # Restaurar estado de encriptación
-        if encryption.is_encryption_enabled(database.USER_DATA_DIR):
-            if not encryption.is_encrypted(db_file):
-                if database.DB_PASSWORD:
-                    encryption.encrypt_file(db_file, database.DB_PASSWORD)
+        try:
+            # Leer archivo
+            with open(sync_file, 'rb') as f:
+                data = f.read()
+                
+            # Enviar al servidor
+            if self.sio and self.sio.connected:
+                self.log("Enviando datos al servidor SocketIO...")
+                self.sio.emit('sync_data', {'data': data.hex()}, 
+                             namespace=self.config["socketio"]["namespace"])
+                self.log("Datos sincronizados con SocketIO")
+            else:
+                raise Exception("No hay conexión SocketIO activa")
+        finally:
+            # Eliminar archivo temporal
+            if sync_file.exists():
+                sync_file.unlink()
+        
         
     def test_webdav(self):
         """Probar conexión WebDAV"""

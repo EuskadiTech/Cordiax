@@ -9,6 +9,8 @@ from flask import Flask
 from flask_socketio import SocketIO, emit
 from pathlib import Path
 from datetime import datetime
+import zipfile
+import shutil
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'cordiax-sync-secret-key'
@@ -39,33 +41,49 @@ def handle_sync_data(data):
     print(f'[{datetime.now()}] Datos recibidos para sincronización')
     
     try:
-        # Los datos vienen en formato hexadecimal
-        db_bytes = bytes.fromhex(data['data'])
+        # Los datos vienen en formato hexadecimal (archivo ZIP)
+        zip_bytes = bytes.fromhex(data['data'])
         
         # Guardar con timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        db_path = SYNC_DIR / f'cordiax_{timestamp}.db'
+        zip_path = SYNC_DIR / f'cordiax_{timestamp}.zip'
         
-        with open(db_path, 'wb') as f:
-            f.write(db_bytes)
+        with open(zip_path, 'wb') as f:
+            f.write(zip_bytes)
         
-        # Crear un enlace simbólico/copia al archivo más reciente
-        latest_path = SYNC_DIR / 'cordiax_latest.db'
-        if latest_path.exists():
-            latest_path.unlink()
+        # Crear directorio para esta versión
+        version_dir = SYNC_DIR / f'version_{timestamp}'
+        version_dir.mkdir(exist_ok=True)
         
-        # En Windows, copiar; en Linux/Mac, usar symlink
-        import shutil
-        shutil.copy2(db_path, latest_path)
+        # Extraer contenido del ZIP
+        with zipfile.ZipFile(zip_path, 'r') as zipf:
+            zipf.extractall(version_dir)
+            file_list = zipf.namelist()
         
-        print(f'[{datetime.now()}] Base de datos guardada: {db_path}')
-        print(f'[{datetime.now()}] Tamaño: {len(db_bytes)} bytes')
+        # Crear un enlace a la versión más reciente
+        latest_dir = SYNC_DIR / 'latest'
+        if latest_dir.exists():
+            shutil.rmtree(latest_dir)
+        shutil.copytree(version_dir, latest_dir)
+        
+        print(f'[{datetime.now()}] Archivo ZIP guardado: {zip_path}')
+        print(f'[{datetime.now()}] Tamaño: {len(zip_bytes)} bytes')
+        print(f'[{datetime.now()}] Archivos extraídos en: {version_dir}')
+        print(f'[{datetime.now()}] Archivos sincronizados: {len(file_list)}')
+        for fname in file_list:
+            print(f'  - {fname}')
         
         # Confirmar recepción
-        emit('sync_complete', {'status': 'success', 'timestamp': timestamp})
+        emit('sync_complete', {
+            'status': 'success', 
+            'timestamp': timestamp,
+            'files_count': len(file_list)
+        })
         
     except Exception as e:
         print(f'[{datetime.now()}] Error al procesar datos: {e}')
+        import traceback
+        traceback.print_exc()
         emit('sync_complete', {'status': 'error', 'message': str(e)})
 
 
@@ -113,6 +131,14 @@ def index():
                 <li>Configure el namespace: <code>/cordiax-sync/</code></li>
                 <li>Pruebe la conexión y active la sincronización</li>
             </ol>
+            <h2>Estructura de Datos</h2>
+            <p>El servidor recibe archivos ZIP que contienen:</p>
+            <ul>
+                <li><strong>cordiax.db</strong> - Base de datos principal (encriptada si está habilitada)</li>
+                <li><strong>documentos/</strong> - Documentos Word, Excel, PowerPoint, PDF</li>
+                <li><strong>pdfs/</strong> - PDFs generados (notas familiares, etc.)</li>
+            </ul>
+            <p>Los archivos se extraen en directorios con timestamp y se mantiene un directorio <code>latest/</code> con la versión más reciente.</p>
             <h2>Logs</h2>
             <p>Los logs del servidor se muestran en la consola donde se ejecutó el servidor.</p>
         </body>
@@ -130,6 +156,7 @@ Servidor iniciando...
 - URL: http://0.0.0.0:5000
 - Namespace: /cordiax-sync/
 - Directorio de datos: ./cordiax_sync_data/
+- Formato: ZIP con base de datos + documentos + PDFs
 
 Presione Ctrl+C para detener el servidor.
     """)

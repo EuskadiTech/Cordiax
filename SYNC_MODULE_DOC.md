@@ -2,7 +2,7 @@
 
 ## Descripción General
 
-El módulo de sincronización permite sincronizar la base de datos de Cordiax con servidores remotos utilizando diferentes protocolos. La sincronización siempre respeta el estado de encriptación de la base de datos.
+El módulo de sincronización permite sincronizar la base de datos de Cordiax junto con todos los documentos y archivos PDF con servidores remotos utilizando diferentes protocolos. La sincronización siempre respeta el estado de encriptación de la base de datos.
 
 ## Características Principales
 
@@ -23,11 +23,20 @@ El módulo de sincronización permite sincronizar la base de datos de Cordiax co
    - Conecta a servidor personalizado en `/cordiax-sync/`
    - Sincronización automática al conectar y cuando hay cambios
 
+### Archivos Sincronizados
+
+El módulo sincroniza:
+- **Base de datos** (`cordiax.db`) - En su estado encriptado si la encriptación está habilitada
+- **Documentos** (`documentos/`) - Archivos Word, Excel, PowerPoint, PDF
+- **PDFs generados** (`pdfs/`) - Notas familiares y otros PDFs generados
+
+Todos los archivos se empaquetan en un archivo ZIP antes de la sincronización para eficiencia y atomicidad.
+
 ### Seguridad
 
 - **Encriptación Respetada**: Si la encriptación está habilitada, solo se sincroniza la versión encriptada de la base de datos
 - **Credenciales Protegidas**: Las contraseñas se almacenan en el archivo de configuración local
-- **Restauración Automática**: Después de sincronizar, se restaura el estado de encriptación original
+- **Sincronización Atómica**: Los archivos se empaquetan en ZIP para garantizar consistencia
 
 ## Configuración
 
@@ -36,7 +45,7 @@ El módulo de sincronización permite sincronizar la base de datos de Cordiax co
 - **URL del servidor**: URL completa del servidor WebDAV (ej: `https://cloud.example.com/remote.php/dav`)
 - **Usuario**: Nombre de usuario
 - **Contraseña**: Contraseña del usuario
-- **Ruta remota**: Directorio donde se almacenará la base de datos (ej: `/cordiax_sync/`)
+- **Ruta remota**: Directorio donde se almacenará el archivo ZIP (ej: `/cordiax_sync/`)
 
 ### SMB/CIFS
 
@@ -125,15 +134,45 @@ El módulo incluye un registro en tiempo real que muestra:
 - El intervalo mínimo de sincronización es de 60 segundos
 - La sincronización WebDAV y SMB utiliza polling, consumiendo ancho de banda periódicamente
 - SocketIO mantiene una conexión abierta, ideal para redes locales
-- **IMPORTANTE**: Solo se sincroniza el archivo de base de datos, no los documentos ni PDFs adjuntos
+- **Los archivos se empaquetan en ZIP**: Todos los archivos (base de datos, documentos, PDFs) se comprimen en un archivo ZIP antes de enviar
+- **Sincronización completa**: Se sincronizan la base de datos, documentos y PDFs generados
 
 ## Servidor Flask-SocketIO Personalizado
 
-Para utilizar el protocolo SocketIO, necesitará un servidor Flask-SocketIO personalizado. Ejemplo básico:
+Para utilizar el protocolo SocketIO, necesitará un servidor Flask-SocketIO personalizado. El archivo `sync_server_example.py` incluido proporciona una implementación completa que:
+
+- Recibe archivos ZIP con todos los datos
+- Extrae el contenido en directorios con timestamp
+- Mantiene un directorio `latest/` con la versión más reciente
+- Proporciona una interfaz web de estado
+
+Ejemplo de uso del servidor:
+
+```bash
+python sync_server_example.py
+```
+
+El servidor guardará los datos en `./cordiax_sync_data/` con la siguiente estructura:
+
+```
+cordiax_sync_data/
+├── cordiax_20240101_120000.zip          # Archivo ZIP recibido
+├── version_20240101_120000/             # Datos extraídos
+│   ├── cordiax.db
+│   ├── documentos/
+│   └── pdfs/
+└── latest/                              # Última versión
+    ├── cordiax.db
+    ├── documentos/
+    └── pdfs/
+```
+
+Código básico del servidor (ver `sync_server_example.py` para la implementación completa):
 
 ```python
 from flask import Flask
 from flask_socketio import SocketIO, emit
+import zipfile
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -145,12 +184,18 @@ def handle_connect():
 
 @socketio.on('sync_data', namespace='/cordiax-sync/')
 def handle_sync_data(data):
-    print('Datos recibidos para sincronización')
-    # Guardar data['data'] en el servidor
-    # El dato viene en formato hexadecimal
-    db_bytes = bytes.fromhex(data['data'])
-    with open('cordiax_sync.db', 'wb') as f:
-        f.write(db_bytes)
+    # Recibir datos en formato hexadecimal (archivo ZIP)
+    zip_bytes = bytes.fromhex(data['data'])
+    
+    # Guardar archivo ZIP
+    with open('cordiax_sync.zip', 'wb') as f:
+        f.write(zip_bytes)
+    
+    # Extraer contenido
+    with zipfile.ZipFile('cordiax_sync.zip', 'r') as zipf:
+        zipf.extractall('./sync_data/')
+    
+    emit('sync_complete', {'status': 'success'})
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000)
