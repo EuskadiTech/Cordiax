@@ -26,6 +26,7 @@ from modules.messages import MessagesModule
 from modules.backup import BackupModule
 from modules.centros import CentrosModule
 from modules.aulas import AulasModule
+from modules.sync import SyncModule
 
 
 class CordiaxApp:
@@ -171,6 +172,7 @@ class CordiaxApp:
             ("Mensajes", self.show_messages),
             ("Centros", self.show_centros),
             ("Aulas", self.show_aulas),
+            ("Sincronización", self.show_sync),
             ("Copia de Seguridad", self.show_backup),
         ]
         
@@ -265,6 +267,11 @@ class CordiaxApp:
         """Mostrar módulo de aulas"""
         self.clear_content()
         self.current_module = AulasModule(self.content_frame)
+    
+    def show_sync(self):
+        """Mostrar módulo de sincronización"""
+        self.clear_content()
+        self.current_module = SyncModule(self.content_frame)
 
 
 def main():
