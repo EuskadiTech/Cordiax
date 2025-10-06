@@ -13,6 +13,8 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import os
+import sys
 
 
 class PermissionsModule:
@@ -138,6 +140,17 @@ class PermissionsModule:
         dialog.transient(self.parent)
         dialog.grab_set()
         
+        # Set icon
+        try:
+            if getattr(sys, 'frozen', False):
+                icon_path = os.path.join(sys._MEIPASS, 'logo.ico')
+            else:
+                icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logo.ico')
+            if os.path.exists(icon_path):
+                dialog.iconbitmap(icon_path)
+        except Exception:
+            pass
+        
         frame = ttk.Frame(dialog, padding="20")
         frame.pack(fill=tk.BOTH, expand=True)
         
@@ -259,10 +272,25 @@ class PermissionDialog:
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
+        # Set icon
+        self._set_icon()
+        
         self.setup_ui()
         
         if permission_id:
             self.load_permission_data()
+    
+    def _set_icon(self):
+        """Set window icon"""
+        try:
+            if getattr(sys, 'frozen', False):
+                icon_path = os.path.join(sys._MEIPASS, 'logo.ico')
+            else:
+                icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logo.ico')
+            if os.path.exists(icon_path):
+                self.dialog.iconbitmap(icon_path)
+        except Exception:
+            pass
     
     def setup_ui(self):
         """Configurar la interfaz del diálogo"""

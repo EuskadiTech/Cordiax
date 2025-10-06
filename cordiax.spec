@@ -6,7 +6,7 @@ a = Analysis(
     ['cordiax.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('logo.ico', '.')],
     hiddenimports=[
         'reportlab',
         'openpyxl',
@@ -47,5 +47,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon='logo.ico',
 )
