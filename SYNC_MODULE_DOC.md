@@ -93,7 +93,26 @@ Si alguna dependencia no está instalada, el protocolo correspondiente aparecer�
 
 ## Archivo de Configuración
 
-La configuración se guarda en `~/_SuperCordiax/sync_config.json` con la siguiente estructura:
+### Ubicación del Archivo
+
+El módulo busca el archivo de configuración en el siguiente orden:
+
+1. **`./sync_config.json`** - Archivo en el directorio actual (donde se ejecuta Cordiax)
+   - Si existe, se usa este archivo
+   - Útil para configuraciones portables o específicas de instalación
+   
+2. **`~/_SuperCordiax/sync_config.json`** - Archivo en el directorio de datos del usuario
+   - Se usa si no existe `./sync_config.json`
+   - Ubicación predeterminada para configuración personal
+
+Esta priorización permite:
+- **Portabilidad**: Colocar `sync_config.json` junto al ejecutable para configuraciones compartidas
+- **Personalización**: Mantener configuraciones específicas del usuario en el directorio de datos
+- **Instalaciones múltiples**: Diferentes configuraciones para diferentes instancias de Cordiax
+
+### Estructura del Archivo
+
+La configuración tiene la siguiente estructura:
 
 ```json
 {

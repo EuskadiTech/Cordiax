@@ -37,7 +37,12 @@ class SyncModule:
     
     def __init__(self, parent):
         self.parent = parent
-        self.config_path = database.USER_DATA_DIR / "sync_config.json"
+        # Check if sync_config.json exists in current directory first
+        local_config = Path("./sync_config.json")
+        if local_config.exists():
+            self.config_path = local_config
+        else:
+            self.config_path = database.USER_DATA_DIR / "sync_config.json"
         self.sync_running = False
         self.sync_thread = None
         self.sio = None
