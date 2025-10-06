@@ -1,0 +1,14 @@
+[
+  {
+    "menu": "Basal",
+    "platos": "Porrusalda\nPizza\nYogur",
+    "fecha": "YYYY-MM-DD",
+    "alergenos": "Contiene Legumbres"
+  },
+  {
+    "menu": "Sin Lactosa",
+    "platos": "Porrusalda\nPizza\nYogur",
+    "fecha": "YYYY-MM-DD",
+    "alergenos": "Contiene Legumbres"
+  }
+]

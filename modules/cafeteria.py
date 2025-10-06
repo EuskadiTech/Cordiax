@@ -5,9 +5,10 @@ Gestión CRUD del menú diario de la cafetería
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from modules import database
 from datetime import date, timedelta
+import json
 
 
 class CafeteriaModule:
@@ -51,6 +52,8 @@ class CafeteriaModule:
                   command=self.edit_menu).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Eliminar", 
                   command=self.delete_menu).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Importar JSON", 
+                  command=self.import_from_json).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Actualizar", 
                   command=self.load_menus).pack(side=tk.LEFT, padx=5)
         
@@ -136,6 +139,59 @@ class CafeteriaModule:
             database.execute_query("DELETE FROM menu_cafeteria WHERE id = ?", (menu_id,))
             self.load_menus()
             messagebox.showinfo("Éxito", "Plato eliminado correctamente")
+    
+    def import_from_json(self):
+        """Importar menús desde archivo JSON"""
+        # Abrir diálogo para seleccionar archivo
+        filepath = filedialog.askopenfilename(
+            title="Seleccionar archivo JSON",
+            filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")]
+        )
+        
+        if not filepath:
+            return
+        
+        try:
+            # Leer archivo JSON
+            with open(filepath, 'r', encoding='utf-8') as file:
+                menus = json.load(file)
+            
+            # Validar que sea una lista
+            if not isinstance(menus, list):
+                messagebox.showerror("Error", "El archivo JSON debe contener una lista de menús")
+                return
+            
+            # Importar cada menú
+            imported_count = 0
+            for menu_data in menus:
+                # Validar campos requeridos
+                if not all(key in menu_data for key in ['menu', 'platos', 'fecha']):
+                    messagebox.showwarning("Advertencia", 
+                        f"Menú omitido: faltan campos requeridos (menu, platos, fecha)")
+                    continue
+                
+                # Insertar en la base de datos
+                database.execute_query("""
+                    INSERT INTO menu_cafeteria 
+                    (fecha, tipo_comida, plato, alergenos)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    menu_data['fecha'],
+                    menu_data['menu'],
+                    menu_data['platos'],
+                    menu_data.get('alergenos', None)
+                ))
+                imported_count += 1
+            
+            # Actualizar vista
+            self.load_menus()
+            messagebox.showinfo("Éxito", 
+                f"{imported_count} menú(s) importado(s) correctamente")
+            
+        except json.JSONDecodeError:
+            messagebox.showerror("Error", "El archivo no es un JSON válido")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al importar: {str(e)}")
 
 
 class MenuDialog:
@@ -171,9 +227,8 @@ class MenuDialog:
         
         ttk.Label(main_frame, text="Tipo de Comida:").grid(row=row, column=0, sticky=tk.W, pady=5)
         self.tipo_var = tk.StringVar()
-        tipos = ["Desayuno", "Almuerzo", "Merienda", "Cena"]
-        ttk.Combobox(main_frame, textvariable=self.tipo_var, values=tipos, 
-                    width=37, state="readonly").grid(row=row, column=1, pady=5, sticky=tk.EW)
+        ttk.Entry(main_frame, textvariable=self.tipo_var, width=40).grid(
+            row=row, column=1, pady=5, sticky=tk.EW)
         row += 1
         
         ttk.Label(main_frame, text="Plato:").grid(row=row, column=0, sticky=tk.W, pady=5)
