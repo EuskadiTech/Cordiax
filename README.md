@@ -11,7 +11,7 @@ Cordiax es una aplicación de escritorio para la gestión integral de aulas esco
 1. **Lista de Estudiantes (CRUD)** - Gestión completa de estudiantes con sus datos personales
 2. **Asistencia de Estudiantes** - Registro diario de asistencia con check-in rápido y notas
 3. **Materiales Escolares** - Control de inventario con alertas de niveles mínimos
-4. **Menú de Cafetería** - Planificación de menús diarios con información de alérgenos
+4. **Menú de Cafetería** - Planificación de menús diarios con información de alérgenos e importación JSON
 5. **Informe Diario** - Resumen automático de materiales bajo mínimo, menú del día y asistencia
 6. **Notas Familiares** - Generación de PDFs profesionales con encabezado
 7. **Permisos** - Gestión de permisos con plantillas imprimibles en PDF
@@ -104,6 +104,46 @@ Cordiax utiliza SQLite para almacenar los datos estructurados y archivos planos 
 
 - **Exportar**: Guarda una copia del backup en cualquier ubicación (útil para DVD, USB, etc.)
 - **Importar**: Carga un backup desde una ubicación externa
+
+## Importación de Menús desde JSON
+
+El módulo de Menú de Cafetería permite importar múltiples menús desde un archivo JSON. Esto facilita la carga masiva de menús desde sistemas externos o plantillas.
+
+### Formato del archivo JSON
+
+El archivo debe ser un array JSON con objetos que contengan los siguientes campos:
+
+```json
+[
+  {
+    "menu": "Basal",
+    "platos": "Porrusalda\nPizza\nYogur",
+    "fecha": "2024-01-15",
+    "alergenos": "Contiene Legumbres"
+  },
+  {
+    "menu": "Sin Lactosa",
+    "platos": "Porrusalda\nPizza\nYogur",
+    "fecha": "2024-01-15",
+    "alergenos": "Contiene Legumbres"
+  }
+]
+```
+
+**Campos:**
+- `menu` (requerido): Tipo de menú (ejemplo: "Basal", "Sin Lactosa", "Vegetariano", etc.)
+- `platos` (requerido): Lista de platos (usar `\n` para separar múltiples platos)
+- `fecha` (requerido): Fecha del menú en formato `YYYY-MM-DD`
+- `alergenos` (opcional): Información sobre alérgenos
+
+### Cómo importar
+
+1. Ir al módulo "Menú Cafetería"
+2. Hacer clic en el botón "Importar JSON"
+3. Seleccionar el archivo JSON con el formato correcto
+4. Los menús se importarán automáticamente
+
+Un archivo de ejemplo está disponible en `menu_import_example.json`.
 
 ## Desarrollo
 
