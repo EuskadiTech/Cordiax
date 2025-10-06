@@ -23,6 +23,8 @@ from modules.permissions import PermissionsModule
 from modules.documents import DocumentsModule
 from modules.messages import MessagesModule
 from modules.backup import BackupModule
+from modules.centros import CentrosModule
+from modules.aulas import AulasModule
 
 
 class CordiaxApp:
@@ -109,6 +111,8 @@ class CordiaxApp:
             ("Permisos", self.show_permissions),
             ("Documentos", self.show_documents),
             ("Mensajes", self.show_messages),
+            ("Centros", self.show_centros),
+            ("Aulas", self.show_aulas),
             ("Copia de Seguridad", self.show_backup),
         ]
         
@@ -187,6 +191,16 @@ class CordiaxApp:
         """Mostrar módulo de copia de seguridad"""
         self.clear_content()
         self.current_module = BackupModule(self.content_frame)
+    
+    def show_centros(self):
+        """Mostrar módulo de centros"""
+        self.clear_content()
+        self.current_module = CentrosModule(self.content_frame)
+    
+    def show_aulas(self):
+        """Mostrar módulo de aulas"""
+        self.clear_content()
+        self.current_module = AulasModule(self.content_frame)
 
 
 def main():
