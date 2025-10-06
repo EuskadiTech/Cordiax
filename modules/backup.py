@@ -115,7 +115,7 @@ class BackupModule:
                 # Agregar base de datos
                 db_path = database.get_db_path()
                 if db_path.exists():
-                    zipf.write(db_path, "cordiax.db")
+                    zipf.write(str(db_path), "cordiax.db")
                 
                 # Agregar documentos
                 docs_dir = database.USER_DATA_DIR / "documentos"
@@ -123,7 +123,7 @@ class BackupModule:
                     for file_path in docs_dir.rglob("*"):
                         if file_path.is_file():
                             arcname = f"documentos/{file_path.relative_to(docs_dir)}"
-                            zipf.write(file_path, arcname)
+                            zipf.write(str(file_path), arcname)
                 
                 # Agregar PDFs
                 pdfs_dir = database.USER_DATA_DIR / "pdfs"
@@ -131,7 +131,7 @@ class BackupModule:
                     for file_path in pdfs_dir.rglob("*"):
                         if file_path.is_file():
                             arcname = f"pdfs/{file_path.relative_to(pdfs_dir)}"
-                            zipf.write(file_path, arcname)
+                            zipf.write(str(file_path), arcname)
             
             self.load_backups()
             messagebox.showinfo("Éxito", 
@@ -160,11 +160,11 @@ class BackupModule:
         
         try:
             # Extraer archivo ZIP
-            with zipfile.ZipFile(backup_path, 'r') as zipf:
+            with zipfile.ZipFile(str(backup_path), 'r') as zipf:
                 # Restaurar base de datos
                 if "cordiax.db" in zipf.namelist():
                     db_path = database.get_db_path()
-                    zipf.extract("cordiax.db", database.USER_DATA_DIR)
+                    zipf.extract("cordiax.db", str(database.USER_DATA_DIR))
                     # Mover al lugar correcto si es necesario
                     extracted = database.USER_DATA_DIR / "cordiax.db"
                     if extracted != db_path:
@@ -174,13 +174,13 @@ class BackupModule:
                 docs_dir = database.USER_DATA_DIR / "documentos"
                 for member in zipf.namelist():
                     if member.startswith("documentos/"):
-                        zipf.extract(member, database.USER_DATA_DIR)
+                        zipf.extract(member, str(database.USER_DATA_DIR))
                 
                 # Restaurar PDFs
                 pdfs_dir = database.USER_DATA_DIR / "pdfs"
                 for member in zipf.namelist():
                     if member.startswith("pdfs/"):
-                        zipf.extract(member, database.USER_DATA_DIR)
+                        zipf.extract(member, str(database.USER_DATA_DIR))
             
             messagebox.showinfo("Éxito", 
                                "Restauración completada correctamente.\n\n"
@@ -211,7 +211,7 @@ class BackupModule:
             return
         
         try:
-            shutil.copy2(backup_path, dest_path)
+            shutil.copy2(str(backup_path), dest_path)
             messagebox.showinfo("Éxito", f"Backup exportado a:\n{dest_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Error al exportar backup: {str(e)}")
@@ -239,7 +239,7 @@ class BackupModule:
                 dest_path = self.backup_dir / dest_name
                 counter += 1
             
-            shutil.copy2(filename, dest_path)
+            shutil.copy2(filename, str(dest_path))
             self.load_backups()
             messagebox.showinfo("Éxito", f"Backup importado como:\n{dest_name}")
             
