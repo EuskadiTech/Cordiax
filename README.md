@@ -18,9 +18,8 @@ Cordiax es una aplicación de escritorio para la gestión integral de aulas esco
 8. **Permisos** - Gestión de permisos con plantillas imprimibles en PDF
 9. **Documentos** - Gestión de archivos Word, Excel, PowerPoint y PDF
 10. **Mensajes de Estudiantes** - Sistema de mensajes internos para referencia
-11. **Sincronización** - Sincronización de base de datos con WebDAV, SMB o Flask-SocketIO (respeta encriptación)
-12. **Copia de Seguridad** - Backup y restauración completa en formato .cordiax.zip
-13. **Encriptación de Base de Datos** - Protección opcional con contraseña y desbloqueo al arranque
+11. **Copia de Seguridad** - Backup y restauración completa en formato .cordiax.zip
+12. **Encriptación de Base de Datos** - Protección opcional con contraseña y desbloqueo al arranque
 
 ## Requisitos
 
@@ -73,7 +72,6 @@ La aplicación almacena todos los datos en el directorio del usuario:
 ```
 _SuperCordiax/
 ├── cordiax.db           # Base de datos SQLite principal
-├── sync_config.json     # Configuración de sincronización
 ├── documentos/          # Archivos Word, Excel, PowerPoint, PDF
 ├── pdfs/                # PDFs generados (notas familiares, etc.)
 ├── backups/             # Copias de seguridad .cordiax.zip
@@ -100,30 +98,6 @@ Cordiax utiliza SQLite para almacenar los datos estructurados y archivos planos 
 - **menu_cafeteria**: Menús planificados
 - **permisos**: Gestión de permisos
 - **mensajes**: Sistema de mensajes internos
-
-## Sincronización de Datos
-
-Cordiax incluye un módulo de sincronización que permite mantener copias de la base de datos en servidores remotos. Ver [documentación completa del módulo de sincronización](SYNC_MODULE_DOC.md).
-
-### Protocolos Soportados
-
-1. **WebDAV** - Compatible con Nextcloud, ownCloud y otros servidores WebDAV
-2. **SMB/CIFS** - Recursos compartidos de Windows y Samba
-3. **Flask-SocketIO** - Servidor personalizado en tiempo real
-
-### Características de Seguridad
-
-- **Respeta la encriptación**: Si la base de datos está encriptada, se sincroniza solo la versión encriptada
-- **Sincronización automática**: Polling periódico configurable (mínimo 60 segundos)
-- **Sincronización en tiempo real**: Con SocketIO, sincroniza al conectar y cuando hay cambios
-
-### Instalación de Dependencias de Sincronización
-
-```bash
-pip install webdavclient3 pysmb flask-socketio python-socketio[client]
-```
-
-Si alguna dependencia no está instalada, el protocolo correspondiente no estará disponible pero el resto de la aplicación funcionará normalmente.
 
 ## Encriptación de Base de Datos
 
@@ -228,7 +202,6 @@ Cordiax/
 ├── modules/
 │   ├── __init__.py
 │   ├── database.py         # Gestión de base de datos
-│   ├── encryption.py       # Módulo de encriptación
 │   ├── centros.py          # Módulo de centros
 │   ├── aulas.py            # Módulo de aulas
 │   ├── students.py         # Módulo de estudiantes
@@ -240,9 +213,7 @@ Cordiax/
 │   ├── permissions.py      # Módulo de permisos
 │   ├── documents.py        # Módulo de documentos
 │   ├── messages.py         # Módulo de mensajes
-│   ├── sync.py             # Módulo de sincronización
-│   ├── backup.py           # Módulo de backup
-│   └── unlock_dialog.py    # Diálogos de encriptación
+│   └── backup.py           # Módulo de backup
 └── .github/
     └── workflows/
         └── build.yml       # GitHub Actions para releases
