@@ -23,6 +23,8 @@ from modules.permissions import PermissionsModule
 from modules.documents import DocumentsModule
 from modules.messages import MessagesModule
 from modules.backup import BackupModule
+from modules.centros import CentrosModule
+from modules.aulas import AulasModule
 
 
 class CordiaxApp:
@@ -97,6 +99,23 @@ class CordiaxApp:
                               bg='#2E86AB', fg='white')
         title_label.pack(pady=(10, 20))
         
+        # Canvas y scrollbar para hacer la lista de botones scrollable
+        canvas = tk.Canvas(button_frame, bg='#2E86AB', highlightthickness=0)
+        scrollbar = tk.Scrollbar(button_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#2E86AB')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas y scrollbar
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
         # Botones de navegación
         self.nav_buttons = []
         modules = [
@@ -109,11 +128,13 @@ class CordiaxApp:
             ("Permisos", self.show_permissions),
             ("Documentos", self.show_documents),
             ("Mensajes", self.show_messages),
+            ("Centros", self.show_centros),
+            ("Aulas", self.show_aulas),
             ("Copia de Seguridad", self.show_backup),
         ]
         
         for text, command in modules:
-            btn = tk.Button(button_frame, text=text, command=command, 
+            btn = tk.Button(scrollable_frame, text=text, command=command, 
                           width=22, height=2,
                           font=('Arial', 10, 'bold'),
                           bg='#A23B72', fg='white',
@@ -124,6 +145,12 @@ class CordiaxApp:
                           bd=2)
             btn.pack(pady=5, padx=10, fill=tk.X)
             self.nav_buttons.append(btn)
+        
+        # Habilitar scroll con la rueda del mouse
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
         
         # Frame de contenido
         self.content_frame = ttk.Frame(main_frame)
@@ -187,6 +214,16 @@ class CordiaxApp:
         """Mostrar módulo de copia de seguridad"""
         self.clear_content()
         self.current_module = BackupModule(self.content_frame)
+    
+    def show_centros(self):
+        """Mostrar módulo de centros"""
+        self.clear_content()
+        self.current_module = CentrosModule(self.content_frame)
+    
+    def show_aulas(self):
+        """Mostrar módulo de aulas"""
+        self.clear_content()
+        self.current_module = AulasModule(self.content_frame)
 
 
 def main():

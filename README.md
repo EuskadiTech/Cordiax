@@ -8,16 +8,17 @@ Cordiax es una aplicación de escritorio para la gestión integral de aulas esco
 
 ## Características
 
-1. **Lista de Estudiantes (CRUD)** - Gestión completa de estudiantes con sus datos personales
-2. **Asistencia de Estudiantes** - Registro diario de asistencia con check-in rápido y notas
-3. **Materiales Escolares** - Control de inventario con alertas de niveles mínimos
-4. **Menú de Cafetería** - Planificación de menús diarios con información de alérgenos e importación JSON
-5. **Informe Diario** - Resumen automático de materiales bajo mínimo, menú del día y asistencia
-6. **Notas Familiares** - Generación de PDFs profesionales con encabezado
-7. **Permisos** - Gestión de permisos con plantillas imprimibles en PDF
-8. **Documentos** - Gestión de archivos Word, Excel, PowerPoint y PDF
-9. **Mensajes de Estudiantes** - Sistema de mensajes internos para referencia
-10. **Copia de Seguridad** - Backup y restauración completa en formato .cordiax.zip
+1. **Centros y Aulas** - Gestión de centros escolares y aulas para organizar estudiantes
+2. **Lista de Estudiantes (CRUD)** - Gestión completa de estudiantes con sus datos personales, asignación a centros y aulas
+3. **Asistencia de Estudiantes** - Registro diario de asistencia con check-in rápido, notas y filtrado por centro/aula
+4. **Materiales Escolares** - Control de inventario con alertas de niveles mínimos
+5. **Menú de Cafetería** - Planificación de menús diarios con información de alérgenos e importación JSON
+6. **Informe Diario** - Resumen automático de materiales bajo mínimo, menú del día y asistencia con filtros por centro/aula
+7. **Notas Familiares** - Generación de PDFs profesionales con encabezado
+8. **Permisos** - Gestión de permisos con plantillas imprimibles en PDF
+9. **Documentos** - Gestión de archivos Word, Excel, PowerPoint y PDF
+10. **Mensajes de Estudiantes** - Sistema de mensajes internos para referencia
+11. **Copia de Seguridad** - Backup y restauración completa en formato .cordiax.zip
 
 ## Requisitos
 
@@ -83,6 +84,18 @@ Cordiax utiliza SQLite para almacenar los datos estructurados y archivos planos 
 - Backup diario de la base de datos
 - Mantiene copias de los últimos 3 días
 - Permite crear backups manuales completos (.cordiax.zip)
+- Migración automática de esquema para añadir nuevas funcionalidades
+
+### Tablas principales:
+
+- **centros**: Información de centros escolares
+- **aulas**: Aulas asociadas a centros
+- **estudiantes**: Datos de estudiantes con referencias a centro y aula
+- **asistencia**: Registros de asistencia diaria
+- **materiales**: Inventario de materiales escolares
+- **menu_cafeteria**: Menús planificados
+- **permisos**: Gestión de permisos
+- **mensajes**: Sistema de mensajes internos
 
 ## Backups
 
@@ -157,6 +170,8 @@ Cordiax/
 ├── modules/
 │   ├── __init__.py
 │   ├── database.py         # Gestión de base de datos
+│   ├── centros.py          # Módulo de centros
+│   ├── aulas.py            # Módulo de aulas
 │   ├── students.py         # Módulo de estudiantes
 │   ├── assistance.py       # Módulo de asistencia
 │   ├── materials.py        # Módulo de materiales

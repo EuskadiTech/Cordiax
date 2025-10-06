@@ -27,6 +27,27 @@ class StudentListModule:
                          font=("Arial", 16, "bold"))
         title.pack(pady=(0, 10))
         
+        # Frame de filtros
+        filter_frame = ttk.Frame(self.parent)
+        filter_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(filter_frame, text="Centro:").pack(side=tk.LEFT, padx=5)
+        self.centro_filter_var = tk.StringVar(value="")
+        self.centro_filter_combo = ttk.Combobox(filter_frame, textvariable=self.centro_filter_var, 
+                                                width=20, state="readonly")
+        self.centro_filter_combo.pack(side=tk.LEFT, padx=5)
+        self.centro_filter_combo.bind("<<ComboboxSelected>>", lambda e: self.load_students())
+        
+        ttk.Label(filter_frame, text="Aula:").pack(side=tk.LEFT, padx=5)
+        self.aula_filter_var = tk.StringVar(value="")
+        self.aula_filter_combo = ttk.Combobox(filter_frame, textvariable=self.aula_filter_var, 
+                                              width=20, state="readonly")
+        self.aula_filter_combo.pack(side=tk.LEFT, padx=5)
+        self.aula_filter_combo.bind("<<ComboboxSelected>>", lambda e: self.load_students())
+        
+        # Cargar filtros
+        self.load_filters()
+        
         # Frame de botones
         button_frame = ttk.Frame(self.parent)
         button_frame.pack(fill=tk.X, pady=(0, 10))
@@ -49,7 +70,7 @@ class StudentListModule:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Treeview
-        columns = ("ID", "Nombre", "Apellidos", "F. Nacimiento", "Teléfono", "Estado")
+        columns = ("ID", "Nombre", "Apellidos", "Centro", "Aula", "F. Nacimiento", "Teléfono", "Estado")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings",
                                 yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.tree.yview)
@@ -58,18 +79,38 @@ class StudentListModule:
         self.tree.heading("ID", text="ID")
         self.tree.heading("Nombre", text="Nombre")
         self.tree.heading("Apellidos", text="Apellidos")
+        self.tree.heading("Centro", text="Centro")
+        self.tree.heading("Aula", text="Aula")
         self.tree.heading("F. Nacimiento", text="F. Nacimiento")
         self.tree.heading("Teléfono", text="Teléfono")
         self.tree.heading("Estado", text="Estado")
         
-        self.tree.column("ID", width=50)
-        self.tree.column("Nombre", width=150)
-        self.tree.column("Apellidos", width=150)
+        self.tree.column("ID", width=40)
+        self.tree.column("Nombre", width=120)
+        self.tree.column("Apellidos", width=120)
+        self.tree.column("Centro", width=150)
+        self.tree.column("Aula", width=100)
         self.tree.column("F. Nacimiento", width=100)
         self.tree.column("Teléfono", width=100)
         self.tree.column("Estado", width=80)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
+        
+    def load_filters(self):
+        """Cargar opciones de filtro"""
+        # Cargar centros
+        centros = database.fetch_all("SELECT id, nombre FROM centros ORDER BY nombre")
+        centro_names = ["Todos"] + [c['nombre'] for c in centros]
+        self.centro_filter_combo['values'] = centro_names
+        if not self.centro_filter_var.get():
+            self.centro_filter_var.set("Todos")
+        
+        # Cargar aulas
+        aulas = database.fetch_all("SELECT id, nombre FROM aulas ORDER BY nombre")
+        aula_names = ["Todas"] + [a['nombre'] for a in aulas]
+        self.aula_filter_combo['values'] = aula_names
+        if not self.aula_filter_var.get():
+            self.aula_filter_var.set("Todas")
         
     def load_students(self):
         """Cargar estudiantes desde la base de datos"""
@@ -77,10 +118,31 @@ class StudentListModule:
         for item in self.tree.get_children():
             self.tree.delete(item)
         
+        # Construir consulta con filtros
+        query = """
+            SELECT e.id, e.nombre, e.apellidos, e.fecha_nacimiento, e.telefono, e.activo,
+                   c.nombre as centro_nombre, a.nombre as aula_nombre
+            FROM estudiantes e
+            LEFT JOIN centros c ON e.centro_id = c.id
+            LEFT JOIN aulas a ON e.aula_id = a.id
+            WHERE 1=1
+        """
+        params = []
+        
+        # Filtro por centro
+        if self.centro_filter_var.get() and self.centro_filter_var.get() != "Todos":
+            query += " AND c.nombre = ?"
+            params.append(self.centro_filter_var.get())
+        
+        # Filtro por aula
+        if self.aula_filter_var.get() and self.aula_filter_var.get() != "Todas":
+            query += " AND a.nombre = ?"
+            params.append(self.aula_filter_var.get())
+        
+        query += " ORDER BY e.apellidos, e.nombre"
+        
         # Obtener estudiantes
-        students = database.fetch_all(
-            "SELECT id, nombre, apellidos, fecha_nacimiento, telefono, activo FROM estudiantes ORDER BY apellidos, nombre"
-        )
+        students = database.fetch_all(query, tuple(params) if params else None)
         
         # Agregar a tabla
         for student in students:
@@ -89,6 +151,8 @@ class StudentListModule:
                 student['id'],
                 student['nombre'],
                 student['apellidos'],
+                student['centro_nombre'] or "",
+                student['aula_nombre'] or "",
                 student['fecha_nacimiento'] or "",
                 student['telefono'] or "",
                 estado
@@ -96,7 +160,12 @@ class StudentListModule:
     
     def new_student(self):
         """Crear nuevo estudiante"""
-        StudentDialog(self.parent, self.load_students)
+        StudentDialog(self.parent, self.reload_data)
+    
+    def reload_data(self):
+        """Recargar filtros y estudiantes"""
+        self.load_filters()
+        self.load_students()
     
     def edit_student(self):
         """Editar estudiante seleccionado"""
@@ -108,7 +177,7 @@ class StudentListModule:
         item = self.tree.item(selection[0])
         student_id = item['values'][0]
         
-        StudentDialog(self.parent, self.load_students, student_id)
+        StudentDialog(self.parent, self.reload_data, student_id)
     
     def delete_student(self):
         """Eliminar estudiante seleccionado"""
@@ -137,7 +206,7 @@ class StudentDialog:
         
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Nuevo Estudiante" if student_id is None else "Editar Estudiante")
-        self.dialog.geometry("500x450")
+        self.dialog.geometry("500x550")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -180,6 +249,30 @@ class StudentDialog:
         self.apellidos_var = tk.StringVar()
         ttk.Entry(main_frame, textvariable=self.apellidos_var, width=40).grid(
             row=row, column=1, pady=5, sticky=tk.EW)
+        row += 1
+        
+        ttk.Label(main_frame, text="Centro:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.centro_var = tk.StringVar()
+        self.centro_combo = ttk.Combobox(main_frame, textvariable=self.centro_var, 
+                                        width=38, state="readonly")
+        self.centro_combo.grid(row=row, column=1, pady=5, sticky=tk.EW)
+        
+        # Cargar centros
+        centros = database.fetch_all("SELECT id, nombre FROM centros ORDER BY nombre")
+        self.centros_dict = {f"{c['nombre']}": c['id'] for c in centros}
+        self.centro_combo['values'] = [""] + list(self.centros_dict.keys())
+        row += 1
+        
+        ttk.Label(main_frame, text="Aula:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.aula_var = tk.StringVar()
+        self.aula_combo = ttk.Combobox(main_frame, textvariable=self.aula_var, 
+                                      width=38, state="readonly")
+        self.aula_combo.grid(row=row, column=1, pady=5, sticky=tk.EW)
+        
+        # Cargar aulas
+        aulas = database.fetch_all("SELECT id, nombre FROM aulas ORDER BY nombre")
+        self.aulas_dict = {f"{a['nombre']}": a['id'] for a in aulas}
+        self.aula_combo['values'] = [""] + list(self.aulas_dict.keys())
         row += 1
         
         ttk.Label(main_frame, text="F. Nacimiento:").grid(row=row, column=0, sticky=tk.W, pady=5)
@@ -243,6 +336,18 @@ class StudentDialog:
             self.email_var.set(student['email_familia'] or "")
             self.notas_text.insert("1.0", student['notas'] or "")
             self.activo_var.set(bool(student['activo']))
+            
+            # Seleccionar centro
+            if student['centro_id']:
+                centro = database.fetch_one("SELECT nombre FROM centros WHERE id = ?", (student['centro_id'],))
+                if centro:
+                    self.centro_var.set(centro['nombre'])
+            
+            # Seleccionar aula
+            if student['aula_id']:
+                aula = database.fetch_one("SELECT nombre FROM aulas WHERE id = ?", (student['aula_id'],))
+                if aula:
+                    self.aula_var.set(aula['nombre'])
     
     def save(self):
         """Guardar estudiante"""
@@ -250,6 +355,15 @@ class StudentDialog:
         if not self.nombre_var.get() or not self.apellidos_var.get():
             messagebox.showerror("Error", "Nombre y apellidos son obligatorios")
             return
+        
+        # Obtener centro_id y aula_id
+        centro_id = None
+        if self.centro_var.get():
+            centro_id = self.centros_dict.get(self.centro_var.get())
+        
+        aula_id = None
+        if self.aula_var.get():
+            aula_id = self.aulas_dict.get(self.aula_var.get())
         
         # Preparar datos
         data = {
@@ -260,7 +374,9 @@ class StudentDialog:
             'telefono': self.telefono_var.get() or None,
             'email_familia': self.email_var.get() or None,
             'notas': self.notas_text.get("1.0", tk.END).strip() or None,
-            'activo': 1 if self.activo_var.get() else 0
+            'activo': 1 if self.activo_var.get() else 0,
+            'centro_id': centro_id,
+            'aula_id': aula_id
         }
         
         try:
@@ -269,20 +385,21 @@ class StudentDialog:
                 database.execute_query("""
                     UPDATE estudiantes 
                     SET nombre=?, apellidos=?, fecha_nacimiento=?, direccion=?, 
-                        telefono=?, email_familia=?, notas=?, activo=?
+                        telefono=?, email_familia=?, notas=?, activo=?, centro_id=?, aula_id=?
                     WHERE id=?
                 """, (data['nombre'], data['apellidos'], data['fecha_nacimiento'],
                      data['direccion'], data['telefono'], data['email_familia'],
-                     data['notas'], data['activo'], self.student_id))
+                     data['notas'], data['activo'], data['centro_id'], data['aula_id'], 
+                     self.student_id))
             else:
                 # Crear nuevo
                 database.execute_query("""
                     INSERT INTO estudiantes 
-                    (nombre, apellidos, fecha_nacimiento, direccion, telefono, email_familia, notas, activo)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (nombre, apellidos, fecha_nacimiento, direccion, telefono, email_familia, notas, activo, centro_id, aula_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (data['nombre'], data['apellidos'], data['fecha_nacimiento'],
                      data['direccion'], data['telefono'], data['email_familia'],
-                     data['notas'], data['activo']))
+                     data['notas'], data['activo'], data['centro_id'], data['aula_id']))
             
             messagebox.showinfo("Éxito", "Estudiante guardado correctamente")
             self.callback()

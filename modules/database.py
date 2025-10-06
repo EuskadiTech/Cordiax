@@ -30,10 +30,62 @@ def get_connection():
     return conn
 
 
+def migrate_database():
+    """Migrar la base de datos a la nueva estructura con centros y aulas"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Verificar si las columnas centro_id y aula_id existen en estudiantes
+    cursor.execute("PRAGMA table_info(estudiantes)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'centro_id' not in columns:
+        try:
+            cursor.execute("ALTER TABLE estudiantes ADD COLUMN centro_id INTEGER")
+            conn.commit()
+        except Exception:
+            pass  # La columna ya existe
+    
+    if 'aula_id' not in columns:
+        try:
+            cursor.execute("ALTER TABLE estudiantes ADD COLUMN aula_id INTEGER")
+            conn.commit()
+        except Exception:
+            pass  # La columna ya existe
+    
+    conn.close()
+
+
 def initialize_database():
     """Inicializar la base de datos y crear tablas"""
     conn = get_connection()
     cursor = conn.cursor()
+    
+    # Tabla de centros
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS centros (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            direccion TEXT,
+            telefono TEXT,
+            email TEXT,
+            notas TEXT,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # Tabla de aulas
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS aulas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            centro_id INTEGER,
+            capacidad INTEGER,
+            notas TEXT,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (centro_id) REFERENCES centros(id)
+        )
+    """)
     
     # Tabla de estudiantes
     cursor.execute("""
@@ -47,7 +99,11 @@ def initialize_database():
             email_familia TEXT,
             notas TEXT,
             activo INTEGER DEFAULT 1,
-            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            centro_id INTEGER,
+            aula_id INTEGER,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (centro_id) REFERENCES centros(id),
+            FOREIGN KEY (aula_id) REFERENCES aulas(id)
         )
     """)
     
@@ -119,6 +175,9 @@ def initialize_database():
     
     conn.commit()
     conn.close()
+    
+    # Ejecutar migraciones
+    migrate_database()
     
     # Realizar backup automático
     backup_database()

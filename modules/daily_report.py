@@ -33,9 +33,28 @@ class DailyReportModule:
         self.date_var = tk.StringVar(value=date.today().strftime("%Y-%m-%d"))
         ttk.Entry(control_frame, textvariable=self.date_var, width=15).pack(side=tk.LEFT, padx=5)
         
-        ttk.Button(control_frame, text="Generar", 
+        # Frame de filtros
+        filter_frame = ttk.Frame(self.parent)
+        filter_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(filter_frame, text="Centro:").pack(side=tk.LEFT, padx=5)
+        self.centro_filter_var = tk.StringVar(value="")
+        self.centro_filter_combo = ttk.Combobox(filter_frame, textvariable=self.centro_filter_var, 
+                                                width=20, state="readonly")
+        self.centro_filter_combo.pack(side=tk.LEFT, padx=5)
+        
+        ttk.Label(filter_frame, text="Aula:").pack(side=tk.LEFT, padx=5)
+        self.aula_filter_var = tk.StringVar(value="")
+        self.aula_filter_combo = ttk.Combobox(filter_frame, textvariable=self.aula_filter_var, 
+                                              width=20, state="readonly")
+        self.aula_filter_combo.pack(side=tk.LEFT, padx=5)
+        
+        # Cargar filtros
+        self.load_filters()
+        
+        ttk.Button(filter_frame, text="Generar", 
                   command=self.generate_report).pack(side=tk.LEFT, padx=5)
-        ttk.Button(control_frame, text="Imprimir", 
+        ttk.Button(filter_frame, text="Imprimir", 
                   command=self.print_report).pack(side=tk.LEFT, padx=5)
         
         # Frame de informe
@@ -47,6 +66,22 @@ class DailyReportModule:
                                                      font=("Courier", 10))
         self.report_text.pack(fill=tk.BOTH, expand=True)
         
+    def load_filters(self):
+        """Cargar opciones de filtro"""
+        # Cargar centros
+        centros = database.fetch_all("SELECT id, nombre FROM centros ORDER BY nombre")
+        centro_names = ["Todos"] + [c['nombre'] for c in centros]
+        self.centro_filter_combo['values'] = centro_names
+        if not self.centro_filter_var.get():
+            self.centro_filter_var.set("Todos")
+        
+        # Cargar aulas
+        aulas = database.fetch_all("SELECT id, nombre FROM aulas ORDER BY nombre")
+        aula_names = ["Todas"] + [a['nombre'] for a in aulas]
+        self.aula_filter_combo['values'] = aula_names
+        if not self.aula_filter_var.get():
+            self.aula_filter_var.set("Todas")
+        
     def generate_report(self):
         """Generar informe diario"""
         self.report_text.delete("1.0", tk.END)
@@ -56,6 +91,13 @@ class DailyReportModule:
         # Encabezado
         report = "=" * 80 + "\n"
         report += f"INFORME DIARIO - {fecha}\n"
+        
+        # Agregar información de filtros
+        if self.centro_filter_var.get() and self.centro_filter_var.get() != "Todos":
+            report += f"Centro: {self.centro_filter_var.get()}\n"
+        if self.aula_filter_var.get() and self.aula_filter_var.get() != "Todas":
+            report += f"Aula: {self.aula_filter_var.get()}\n"
+        
         report += "=" * 80 + "\n\n"
         
         # Materiales bajo mínimo
@@ -106,16 +148,34 @@ class DailyReportModule:
         else:
             report += "  No hay menú registrado para este día\n"
         
-        # Asistencia del día
+        # Asistencia del día con filtros
         report += "\n\nRESUMEN DE ASISTENCIA:\n"
         report += "-" * 80 + "\n"
         
-        asistencia = database.fetch_all("""
-            SELECT estado, COUNT(*) as total
-            FROM asistencia
-            WHERE fecha = ?
-            GROUP BY estado
-        """, (fecha,))
+        # Construir consulta con filtros
+        query = """
+            SELECT a.estado, COUNT(*) as total
+            FROM asistencia a
+            JOIN estudiantes e ON a.estudiante_id = e.id
+            LEFT JOIN centros c ON e.centro_id = c.id
+            LEFT JOIN aulas au ON e.aula_id = au.id
+            WHERE a.fecha = ?
+        """
+        params = [fecha]
+        
+        # Filtro por centro
+        if self.centro_filter_var.get() and self.centro_filter_var.get() != "Todos":
+            query += " AND c.nombre = ?"
+            params.append(self.centro_filter_var.get())
+        
+        # Filtro por aula
+        if self.aula_filter_var.get() and self.aula_filter_var.get() != "Todas":
+            query += " AND au.nombre = ?"
+            params.append(self.aula_filter_var.get())
+        
+        query += " GROUP BY a.estado"
+        
+        asistencia = database.fetch_all(query, tuple(params))
         
         if asistencia:
             total_registros = sum(a['total'] for a in asistencia)
