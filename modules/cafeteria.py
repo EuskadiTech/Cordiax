@@ -9,6 +9,8 @@ from tkinter import ttk, messagebox, filedialog
 from modules import database
 from datetime import date, timedelta
 import json
+import os
+import sys
 
 
 class CafeteriaModule:
@@ -207,10 +209,25 @@ class MenuDialog:
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
+        # Set icon
+        self._set_icon()
+        
         self.setup_ui()
         
         if menu_id:
             self.load_menu_data()
+    
+    def _set_icon(self):
+        """Set window icon"""
+        try:
+            if getattr(sys, 'frozen', False):
+                icon_path = os.path.join(sys._MEIPASS, 'logo.ico')
+            else:
+                icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logo.ico')
+            if os.path.exists(icon_path):
+                self.dialog.iconbitmap(icon_path)
+        except Exception:
+            pass
     
     def setup_ui(self):
         """Configurar la interfaz del diálogo"""

@@ -33,6 +33,9 @@ class CordiaxApp:
         self.root.title("Cordiax - Gestión de Aula")
         self.root.geometry("1200x700")
         
+        # Set icon for main window
+        self.set_window_icon(self.root)
+        
         # Configurar el directorio de datos del usuario
         self.setup_user_directory()
         
@@ -41,6 +44,21 @@ class CordiaxApp:
         
         # Configurar la interfaz
         self.setup_ui()
+    
+    def set_window_icon(self, window):
+        """Set icon for a window"""
+        try:
+            if getattr(sys, 'frozen', False):
+                # Running as compiled executable
+                icon_path = os.path.join(sys._MEIPASS, 'logo.ico')
+            else:
+                # Running as script
+                icon_path = os.path.join(os.path.dirname(__file__), 'logo.ico')
+            
+            if os.path.exists(icon_path):
+                window.iconbitmap(icon_path)
+        except Exception:
+            pass  # If icon fails to load, just continue
         
     def setup_user_directory(self):
         """Configurar el directorio de datos del usuario"""
@@ -58,19 +76,26 @@ class CordiaxApp:
         
     def setup_ui(self):
         """Configurar la interfaz de usuario"""
+        # Configure style for buttons
+        style = ttk.Style()
+        style.configure('Nav.TButton', 
+                       font=('Arial', 11, 'bold'),
+                       padding=10)
+        
         # Frame principal
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Frame de botones laterales
-        button_frame = ttk.Frame(main_frame, width=200)
+        # Frame de botones laterales with background color
+        button_frame = tk.Frame(main_frame, width=220, bg='#2E86AB')
         button_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
         button_frame.pack_propagate(False)
         
         # Título
-        title_label = ttk.Label(button_frame, text="CORDIAX", 
-                                font=("Arial", 18, "bold"))
-        title_label.pack(pady=(0, 20))
+        title_label = tk.Label(button_frame, text="CORDIAX", 
+                              font=("Arial", 20, "bold"),
+                              bg='#2E86AB', fg='white')
+        title_label.pack(pady=(10, 20))
         
         # Botones de navegación
         self.nav_buttons = []
@@ -88,8 +113,16 @@ class CordiaxApp:
         ]
         
         for text, command in modules:
-            btn = ttk.Button(button_frame, text=text, command=command, width=25)
-            btn.pack(pady=5, fill=tk.X)
+            btn = tk.Button(button_frame, text=text, command=command, 
+                          width=22, height=2,
+                          font=('Arial', 10, 'bold'),
+                          bg='#A23B72', fg='white',
+                          activebackground='#F18F01',
+                          activeforeground='white',
+                          cursor='hand2',
+                          relief=tk.RAISED,
+                          bd=2)
+            btn.pack(pady=5, padx=10, fill=tk.X)
             self.nav_buttons.append(btn)
         
         # Frame de contenido
