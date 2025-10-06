@@ -19,6 +19,7 @@ Cordiax es una aplicación de escritorio para la gestión integral de aulas esco
 9. **Documentos** - Gestión de archivos Word, Excel, PowerPoint y PDF
 10. **Mensajes de Estudiantes** - Sistema de mensajes internos para referencia
 11. **Copia de Seguridad** - Backup y restauración completa en formato .cordiax.zip
+12. **Encriptación de Base de Datos** - Protección opcional con contraseña y desbloqueo al arranque
 
 ## Requisitos
 
@@ -85,6 +86,7 @@ Cordiax utiliza SQLite para almacenar los datos estructurados y archivos planos 
 - Mantiene copias de los últimos 3 días
 - Permite crear backups manuales completos (.cordiax.zip)
 - Migración automática de esquema para añadir nuevas funcionalidades
+- **Encriptación opcional de la base de datos** para proteger información sensible
 
 ### Tablas principales:
 
@@ -96,6 +98,36 @@ Cordiax utiliza SQLite para almacenar los datos estructurados y archivos planos 
 - **menu_cafeteria**: Menús planificados
 - **permisos**: Gestión de permisos
 - **mensajes**: Sistema de mensajes internos
+
+## Encriptación de Base de Datos
+
+Cordiax ofrece encriptación opcional de la base de datos para proteger información sensible de estudiantes y familias.
+
+### Habilitar Encriptación
+
+1. Ir al módulo "Copia de Seguridad"
+2. En la sección "Encriptación de Base de Datos", hacer clic en "Habilitar Encriptación"
+3. Configurar una contraseña segura (mínimo 4 caracteres)
+4. Confirmar la contraseña
+5. La base de datos se encriptará automáticamente
+
+**IMPORTANTE**: Guarde la contraseña en un lugar seguro. Sin ella, no podrá acceder a sus datos.
+
+### Desbloqueo al Arranque
+
+Cuando la encriptación está habilitada:
+- Al iniciar Cordiax, se solicitará la contraseña
+- Tiene 3 intentos para ingresar la contraseña correcta
+- Si cancela o falla, la aplicación no iniciará
+
+### Deshabilitar Encriptación
+
+1. Ir al módulo "Copia de Seguridad"
+2. En la sección "Encriptación de Base de Datos", hacer clic en "Deshabilitar Encriptación"
+3. Confirmar la acción
+4. La base de datos quedará desencriptada y no se solicitará contraseña al iniciar
+
+**Nota**: La encriptación utiliza AES-256 mediante la biblioteca cryptography con derivación de clave PBKDF2.
 
 ## Backups
 

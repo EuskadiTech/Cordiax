@@ -9,9 +9,11 @@ import os
 import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
+from modules import encryption
 
 USER_DATA_DIR = None
 DB_PATH = None
+DB_PASSWORD = None
 
 
 def get_db_path():
@@ -25,6 +27,12 @@ def get_db_path():
 def get_connection():
     """Obtener conexión a la base de datos"""
     db_path = get_db_path()
+    
+    # Si la base de datos está encriptada, desencriptarla temporalmente
+    if encryption.is_encryption_enabled(USER_DATA_DIR) and encryption.is_encrypted(db_path):
+        if DB_PASSWORD:
+            encryption.decrypt_file(db_path, DB_PASSWORD)
+    
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     return conn
@@ -239,6 +247,9 @@ def execute_query(query, params=None):
     last_id = cursor.lastrowid
     conn.close()
     
+    # Re-encriptar si es necesario
+    _encrypt_if_enabled()
+    
     return last_id
 
 
@@ -271,4 +282,21 @@ def fetch_one(query, params=None):
     result = cursor.fetchone()
     conn.close()
     
+    # Re-encriptar si es necesario
+    _encrypt_if_enabled()
+    
     return result
+
+
+def _encrypt_if_enabled():
+    """Encriptar la base de datos si la encriptación está habilitada"""
+    if encryption.is_encryption_enabled(USER_DATA_DIR) and DB_PASSWORD:
+        db_path = get_db_path()
+        if not encryption.is_encrypted(db_path):
+            encryption.encrypt_file(db_path, DB_PASSWORD)
+
+
+def set_password(password):
+    """Establecer la contraseña de la base de datos"""
+    global DB_PASSWORD
+    DB_PASSWORD = password

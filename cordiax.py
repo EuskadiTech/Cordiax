@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 
 # Importar módulos de la aplicación
-from modules import database
+from modules import database, encryption
+from modules.unlock_dialog import UnlockDialog, EncryptionSetupDialog
 from modules.students import StudentListModule
 from modules.assistance import AssistanceModule
 from modules.materials import MaterialsModule
@@ -40,6 +41,12 @@ class CordiaxApp:
         
         # Configurar el directorio de datos del usuario
         self.setup_user_directory()
+        
+        # Manejar desbloqueo de base de datos encriptada
+        if not self.handle_database_unlock():
+            # Si el usuario cancela el desbloqueo, cerrar la aplicación
+            self.root.destroy()
+            return
         
         # Inicializar la base de datos
         database.initialize_database()
@@ -75,6 +82,40 @@ class CordiaxApp:
         
         # Establecer rutas en el módulo de base de datos
         database.USER_DATA_DIR = self.user_data_dir
+    
+    def handle_database_unlock(self):
+        """Manejar el desbloqueo de la base de datos encriptada"""
+        db_path = database.get_db_path()
+        
+        # Si la encriptación está habilitada
+        if encryption.is_encryption_enabled(self.user_data_dir):
+            if db_path.exists() and encryption.is_encrypted(db_path):
+                # Solicitar contraseña para desbloquear
+                max_attempts = 3
+                for attempt in range(max_attempts):
+                    dialog = UnlockDialog(self.root)
+                    password = dialog.show()
+                    
+                    if password is None:
+                        # Usuario canceló
+                        return False
+                    
+                    # Intentar desencriptar
+                    if encryption.decrypt_file(db_path, password):
+                        database.set_password(password)
+                        return True
+                    else:
+                        remaining = max_attempts - attempt - 1
+                        if remaining > 0:
+                            messagebox.showerror("Error", 
+                                               f"Contraseña incorrecta.\n"
+                                               f"Intentos restantes: {remaining}")
+                        else:
+                            messagebox.showerror("Error", 
+                                               "Contraseña incorrecta. No se puede acceder a la base de datos.")
+                            return False
+        
+        return True
         
     def setup_ui(self):
         """Configurar la interfaz de usuario"""

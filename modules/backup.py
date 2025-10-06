@@ -6,7 +6,8 @@ Gestión de copias de seguridad en formato .cordiax.zip
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from modules import database
+from modules import database, encryption
+from modules.unlock_dialog import EncryptionSetupDialog
 from pathlib import Path
 import zipfile
 import shutil
@@ -46,6 +47,31 @@ class BackupModule:
                   command=self.delete_backup).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Actualizar", 
                   command=self.load_backups).pack(side=tk.LEFT, padx=5)
+        
+        # Frame de encriptación
+        encryption_frame = ttk.LabelFrame(self.parent, text="Encriptación de Base de Datos", padding="10")
+        encryption_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Estado de encriptación
+        status_frame = ttk.Frame(encryption_frame)
+        status_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(status_frame, text="Estado:").pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.encryption_status_label = ttk.Label(status_frame, text="", font=("Arial", 9, "bold"))
+        self.encryption_status_label.pack(side=tk.LEFT)
+        
+        # Botones de encriptación
+        enc_button_frame = ttk.Frame(encryption_frame)
+        enc_button_frame.pack(fill=tk.X)
+        
+        ttk.Button(enc_button_frame, text="Habilitar Encriptación", 
+                  command=self.enable_encryption).pack(side=tk.LEFT, padx=5)
+        ttk.Button(enc_button_frame, text="Deshabilitar Encriptación", 
+                  command=self.disable_encryption).pack(side=tk.LEFT, padx=5)
+        
+        # Actualizar estado de encriptación
+        self.update_encryption_status()
         
         # Frame de tabla
         table_frame = ttk.Frame(self.parent)
@@ -265,3 +291,75 @@ class BackupModule:
                 messagebox.showinfo("Éxito", "Backup eliminado correctamente")
             except Exception as e:
                 messagebox.showerror("Error", f"Error al eliminar backup: {str(e)}")
+    
+    def update_encryption_status(self):
+        """Actualizar el estado de encriptación en la UI"""
+        if encryption.is_encryption_enabled(database.USER_DATA_DIR):
+            self.encryption_status_label.config(text="Habilitada", foreground="green")
+        else:
+            self.encryption_status_label.config(text="Deshabilitada", foreground="red")
+    
+    def enable_encryption(self):
+        """Habilitar encriptación de la base de datos"""
+        if encryption.is_encryption_enabled(database.USER_DATA_DIR):
+            messagebox.showinfo("Información", "La encriptación ya está habilitada")
+            return
+        
+        # Mostrar diálogo para configurar contraseña
+        dialog = EncryptionSetupDialog(self.parent)
+        password = dialog.show()
+        
+        if password is None:
+            return
+        
+        try:
+            # Marcar como habilitada
+            encryption.enable_encryption(database.USER_DATA_DIR)
+            
+            # Establecer contraseña en la base de datos
+            database.set_password(password)
+            
+            # Encriptar la base de datos actual
+            db_path = database.get_db_path()
+            if db_path.exists() and not encryption.is_encrypted(db_path):
+                encryption.encrypt_file(db_path, password)
+            
+            self.update_encryption_status()
+            messagebox.showinfo("Éxito", 
+                               "Encriptación habilitada correctamente.\n\n"
+                               "A partir de ahora, se solicitará la contraseña al iniciar la aplicación.")
+        except Exception as e:
+            encryption.disable_encryption(database.USER_DATA_DIR)
+            messagebox.showerror("Error", f"Error al habilitar encriptación: {str(e)}")
+    
+    def disable_encryption(self):
+        """Deshabilitar encriptación de la base de datos"""
+        if not encryption.is_encryption_enabled(database.USER_DATA_DIR):
+            messagebox.showinfo("Información", "La encriptación no está habilitada")
+            return
+        
+        if not messagebox.askyesno("Confirmar", 
+                                  "¿Está seguro de deshabilitar la encriptación?\n\n"
+                                  "La base de datos quedará sin protección de contraseña."):
+            return
+        
+        try:
+            # Desencriptar la base de datos si está encriptada
+            db_path = database.get_db_path()
+            if encryption.is_encrypted(db_path):
+                # La base de datos ya debería estar desencriptada en memoria
+                # Solo necesitamos marcar como deshabilitada
+                pass
+            
+            # Marcar como deshabilitada
+            encryption.disable_encryption(database.USER_DATA_DIR)
+            
+            # Limpiar contraseña
+            database.set_password(None)
+            
+            self.update_encryption_status()
+            messagebox.showinfo("Éxito", 
+                               "Encriptación deshabilitada correctamente.\n\n"
+                               "Ya no se solicitará contraseña al iniciar la aplicación.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al deshabilitar encriptación: {str(e)}")
