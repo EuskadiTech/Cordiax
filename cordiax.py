@@ -72,7 +72,7 @@ class CordiaxApp:
     def setup_user_directory(self):
         """Configurar el directorio de datos del usuario"""
         user_home = Path.home()
-        self.user_data_dir = user_home / "_SuperCordiax"
+        self.user_data_dir = "_datos_cordiax"
         self.user_data_dir.mkdir(exist_ok=True)
         
         # Crear subdirectorios
