@@ -8,16 +8,7 @@ a = Analysis(
     binaries=[],
     datas=[('logo.ico', '.')],
     hiddenimports=[
-        'reportlab',
-        'openpyxl',
-        'docx',
-        'PIL',
-        'tkinter',
-        'sqlite3',
-        'cryptography',
-        'cryptography.hazmat.primitives',
-        'cryptography.hazmat.primitives.kdf.pbkdf2',
-        'cryptography.fernet',
+        'pywebview'
     ],
     hookspath=[],
     hooksconfig={},
